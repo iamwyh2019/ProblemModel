@@ -1,0 +1,66 @@
+{
+    "language": "zh",
+    "text": "假设你能预知今后 n 天的股票价格，设计一个算法来确定最大利润。可以完成任意多次交易（即购买和卖出一份股票任意多次），但必须先卖出才能再次买入，且卖出股票后第2天才能买入。",
+    "objective": {
+        "goal": "max",
+        "type": "int",
+        "index": [28,29]
+    },
+    "variable": {
+        "type": "int",
+        "count": "n"
+    },
+    "constraint": [
+        {
+            "type": "sum",
+            "term": "p[i]*x[i]",
+            "comp": "=",
+            "rval": "y",
+            "loopvar": "i"
+        },
+        {
+            "type": "loop",
+            "loopvar": "i",
+            "term": "x[i]",
+            "comp": ">=",
+            "rval": "-1"
+        },
+        {
+            "type": "loop",
+            "loopvar": "i",
+            "term": "x[i]",
+            "comp": "<=",
+            "rval": "1"
+        },
+        {
+            "type": "loop",
+            "loopvar": "i",
+            "term": [
+                {
+                    "type": "sum",
+                    "term": "x[j]",
+                    "comp": "<=",
+                    "rval": "0",
+                    "loopvar": "j"
+                },
+                {
+                    "type": "sum",
+                    "term": "x[j]",
+                    "comp": ">=",
+                    "rval": "-1",
+                    "loopvar": "j"
+                }
+            ]
+        }
+    ],
+    "input": [
+        {
+            "name": "n"
+        },
+        {
+            "name": "p",
+            "type": "intarray",
+            "length": "n"
+        }
+    ]
+}
