@@ -1,4 +1,4 @@
-from z3 import Int, Real, IntVector, RealVector, Sum, Product, Optimize, sat
+from z3 import Int, Real, IntVector, RealVector, Sum, Product, Optimize, And, Or, sat
 import random
 import os
 try:
@@ -74,21 +74,14 @@ class _Constraint:
         self.upbound = upbound
         self.numvar = numvar
 
-        if isinstance(self.term, str):
-            if 'comp' not in obj:
-                raise Exception('Need comp in constraint as \'comp\'')
-            self.comp = obj['comp']
-
-            if 'rval' not in obj:
-                raise Exception('Need rval in constraint as \'rval\'')
-            self.rval = obj['rval']
-        else:
-            self.comp = None
-            self.rval = None
+        self.comp = obj['comp'] if 'comp' in obj else None
+        self.rval = obj['rval'] if 'rval' in obj else None
 
         # the index of the rval
         if 'index' in obj:
             self.index = obj['index']
+        else:
+            self.index = None
 
         if 'type' not in obj:
             if verbose:
@@ -130,7 +123,10 @@ class _Constraint:
             print(padding, 'For value {} in range [{},{}]: '.format(self.loopvar, self.range[0], self.range[1]), sep='\t', end='')
             
             if isinstance(self.term, str):
-                print('{} {} {}'.format(self.term, self.comp, self.rval))
+                if self.comp and self.rval:
+                    print('{} {} {}'.format(self.term, self.comp, self.rval))
+                else:
+                    print(self.term)
             else:
                 print('the following constraints holds:')
                 for t in self.term:
@@ -223,55 +219,15 @@ class ProblemModel:
             for obj in Obj:
                 self.input.append(_Input(obj, self.verbose))
     
-    def mutate(self, mode=None):
-        modes = ('objective', 'constraint')
-        if mode==None:
-            mode = random.choice(modes)
-        elif mode not in modes:
-            raise Exception('Illegal mode: {}'.format(mode))
-        
-        if mode=='objective':
-            pass
-        elif mode=='constraint':
-            pass
-        else:
-            pass
-
-    def print(self):
-        print('This problem has {} variables of type {}.'.format(self.variable.count, self.variable.type))
-        
-        print('This problem has {} constraints:'.format(len(self.constraint)))
-        for i,c in enumerate(self.constraint):
-            print('Constraint {}:'.format(i+1))
-            c._print()
-        
-        print('This problem has {} inputs:'.format(len(self.input)))
-        for i,c in enumerate(self.input):
-            print('Input {}:'.format(i+1))
-            print('\tName: {}'.format(c.name))
-            print('\tType: {}'.format(c.type))
-            if c.type in ('intarray', 'realarray'):
-                print('\tLength: {}'.format(c.length))
-    
     @staticmethod
     def _get_number(i,val_dict):
-        def is_number(s, tp=int):
-            try:
-                tp(s)
-                return True
-            except ValueError:
-                return False
 
         if isinstance(i, int) or isinstance(i, float):
             return i
         elif isinstance(i, str):
-            if is_number(i, int):
-                return int(i)
-            elif is_number(i, float):
-                return float(i)
-            elif i in val_dict:
-                return val_dict[i]
-            else:
+            try:
+                return eval(i, val_dict)
+            except:
                 raise Exception('Cannot find value {}'.format(i))
         else:
             raise Exception('Illegal type: {}'.format(type(i)))
@@ -281,6 +237,8 @@ class ProblemModel:
         
         _val['x'] = x
         _val['y'] = y
+        _val['Or'] = Or
+        _val['And'] = And
         
         comp_func = {
             '<': lambda x,y: x<y,
@@ -302,13 +260,16 @@ class ProblemModel:
                 term = '[{} for {} in range({},{})]'.format(
                     con.term, con.loopvar, con.range[0]-1, con.range[1])
             term = eval(term, _val)
-            rval = eval(con.rval, _val)
             if con.type == 'sum':
                 term = Sum(term)
             elif con.type == 'product':
                 term = Product(term)
             
-            final = get_comp(con.comp)(term, rval)
+            if con.comp!=None and con.rval!=None:
+                rval = eval(con.rval, _val) if isinstance(con.rval, str) else con.rval
+                final = get_comp(con.comp)(term, rval)
+            else:
+                final = term
             if verbose:
                 print('Adding constraint:', final)
             opt.add(final)
@@ -324,8 +285,13 @@ class ProblemModel:
                 _val[con.loopvar] = i
                 if isinstance(con.term, str):
                     term = eval(con.term, _val)
-                    rval = eval(con.rval, _val)
-                    final = get_comp(con.comp)(term, rval)
+
+                    if con.comp!=None and con.rval!=None:
+                        rval = eval(con.rval, _val) if isinstance(con.rval, str) else con.rval
+                        final = get_comp(con.comp)(term, rval)
+                    else:
+                        final = term
+                        
                     if verbose:
                         print('Adding constraint:', final)
                     opt.add(final)
@@ -375,6 +341,24 @@ class ProblemModel:
         
         return input_dict
     
+    
+    def print(self):
+        print('This problem has {} variables of type {}.'.format(self.variable.count, self.variable.type))
+        
+        print('This problem has {} constraints:'.format(len(self.constraint)))
+        for i,c in enumerate(self.constraint):
+            print('Constraint {}:'.format(i+1))
+            c._print()
+        
+        print('This problem has {} inputs:'.format(len(self.input)))
+        for i,c in enumerate(self.input):
+            print('Input {}:'.format(i+1))
+            print('\tName: {}'.format(c.name))
+            print('\tType: {}'.format(c.type))
+            if c.type in ('intarray', 'realarray'):
+                print('\tLength: {}'.format(c.length))
+    
+
     def solve(self, verbose = False):
         # first, handle input
         value_dict = self._input()
@@ -405,3 +389,33 @@ class ProblemModel:
             return opt.upper(h), opt.model()
         else:
             return opt.lower(h), opt.model()
+    
+        
+    def mutate(self, mode=None):
+        modes = ('objective', 'constraint')
+        if mode==None:
+            mode = random.choice(modes)
+        elif mode not in modes:
+            raise Exception('Illegal mode: {}'.format(mode))
+        
+        lang = _words[self.lang]
+        res = copy.deepcopy(self)
+        
+        if mode=='objective':
+            obj = self.objective
+            before, after = self.problem_text[:obj.index[0]-1], self.problem_text[obj.index[1]:]
+            target = 'min' if obj.goal == 'max' else 'max'
+            
+            res.problem_text = before + lang[target] + after
+            res.objective.goal = target
+            res.objective.index = [len(before)+1, len(before)+len(lang[target])]
+
+        elif mode=='constraint':
+            cons = list(filter(lambda x: x.index!=None, self.constraint))
+            if len(cons) == 0:
+                raise Exception('No constraints to mutate')
+            con = random.choice(cons)
+        else:
+            pass
+
+        return res
