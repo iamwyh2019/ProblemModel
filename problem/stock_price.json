@@ -23,14 +23,20 @@
             "loopvar": "i",
             "term": "x[i]",
             "comp": ">=",
-            "rval": "-1"
+            "rval": -1
         },
         {
             "type": "loop",
             "loopvar": "i",
             "term": "x[i]",
             "comp": "<=",
-            "rval": "1"
+            "rval": 1
+        },
+        {
+            "type": "loop",
+            "loopvar": "i",
+            "term": "Or(x[i]<=0, x[i+1]==0)",
+            "range": [1, "n-1"]
         },
         {
             "type": "loop",
@@ -40,14 +46,14 @@
                     "type": "sum",
                     "term": "x[j]",
                     "comp": "<=",
-                    "rval": "0",
+                    "rval": 0,
                     "loopvar": "j"
                 },
                 {
                     "type": "sum",
                     "term": "x[j]",
                     "comp": ">=",
-                    "rval": "-1",
+                    "rval": -1,
                     "loopvar": "j"
                 }
             ]
