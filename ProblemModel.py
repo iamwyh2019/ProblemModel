@@ -355,10 +355,13 @@ class ProblemModel:
             condList = []
             for cons in con.term:
                 ProblemModel._parse_constraint(cons, _val, x, y, opt, condList, verbose)
-            if con.type == 'or':
-                final = Or(condList)
+            if len(condList) == 1:
+                final = condList[0]
             else:
-                final = And(condList)
+                if con.type == 'or':
+                    final = Or(condList)
+                else:
+                    final = And(condList)
             if retList != None:
                 retList.append(final)
             else:
