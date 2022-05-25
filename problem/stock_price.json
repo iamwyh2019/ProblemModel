@@ -14,7 +14,7 @@
         {
             "type": "int",
             "name": "k",
-            "value": 2,
+            "value": 3,
             "range": [2,5],
             "index": [80,80]
         }
@@ -48,18 +48,20 @@
                 "type": "or",
                 "term": [
                     {
-                        "type": "loop",
-                        "loopvar": "j",
-                        "term": "x[i+j]",
+                        "term": "x[i]",
                         "comp": "<=",
-                        "rval": "0",
-                        "range": [0,"k-2"]
+                        "rval": "0"
                     },
                     {
-                        "type": "single",
-                        "term": "x[i+k-1]",
-                        "comp": "=",
-                        "rval": "0"
+                        "type": "and",
+                        "term": {
+                            "type": "loop",
+                            "loopvar": "j",
+                            "term": "x[i+j]",
+                            "comp": "=",
+                            "rval": "0",
+                            "range": [1, "k-1"]
+                        }
                     }
                 ]
             },

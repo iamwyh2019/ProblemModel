@@ -136,7 +136,7 @@ class _Constraint:
             else:
                 self.loopvar = obj['loopvar']
         
-        if obj['type'] in ('loop', 'or', 'and'):
+        if self.type in ('loop', 'or', 'and'):
             if isinstance(self.term, dict):
                 self.term = [_Constraint(self.term, \
                     self.loopvar or upbound, numvar, dep+1, verbose)]
@@ -510,7 +510,7 @@ class ProblemModel:
             before, after = self.problem_text[:param.index[0]-1], self.problem_text[param.index[1]:]
             res.problem_text = before + str(newval) + after
             res.param[pIndex].value = newval
-            res.param[pIndex].range[1] = len(before)+len(str(newval))+1
+            res.param[pIndex].index[1] = param.index[0]+len(str(newval))-1
 
         else:
             pass
