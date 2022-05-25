@@ -15,7 +15,7 @@
             "type": "int",
             "name": "k",
             "value": 2,
-            "bound": [1,10],
+            "range": [2,5],
             "index": [80,80]
         }
     ],
@@ -63,7 +63,7 @@
                     }
                 ]
             },
-            "range": [1, "n-k+1"]
+            "range": [0, "n-k"]
         },
         {
             "type": "loop",
@@ -74,14 +74,16 @@
                     "term": "x[j]",
                     "comp": "<=",
                     "rval": 0,
-                    "loopvar": "j"
+                    "loopvar": "j",
+                    "range": [0, "i"]
                 },
                 {
                     "type": "sum",
                     "term": "x[j]",
                     "comp": ">=",
                     "rval": -1,
-                    "loopvar": "j"
+                    "loopvar": "j",
+                    "range": [0, "i"]
                 }
             ]
         }

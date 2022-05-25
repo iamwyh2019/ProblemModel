@@ -63,9 +63,9 @@ class _Parameter:
             raise Exception('Need name in parameter as \'name\'')
         self.name = obj['name']
 
-        if 'bound' not in obj:
-            raise Exception('Need bound in parameter as \'bound\'')
-        self.bound = obj['bound']
+        if 'range' not in obj:
+            raise Exception('Need range in parameter as \'range\'')
+        self.range = obj['range']
 
         if 'index' not in obj:
             raise Exception('Need index in parameter as \'index\'')
@@ -124,8 +124,8 @@ class _Constraint:
         if self.type in ('loop', 'sum', 'product'):
             if 'range' not in obj:
                 if verbose:
-                    print('Cannot find range. Using [1,{}] as default.'.format(upbound))
-                self.range = [1, upbound]
+                    print('Cannot find range. Using [0,{}-1] as default.'.format(upbound))
+                self.range = [0, '{}-1'.format(upbound)]
             else:
                 self.range = obj['range']
 
@@ -276,7 +276,7 @@ class ProblemModel:
             raise Exception('Illegal type: {}'.format(type(i)))
     
     @staticmethod
-    def _parse_constraint(con, _val, x, y, opt, offset=0, retList=None, verbose=False):
+    def _parse_constraint(con, _val, x, y, opt, retList=None, verbose=False):
         
         _val['x'] = x
         _val['y'] = y
@@ -300,8 +300,8 @@ class ProblemModel:
             if con.type == 'single':
                 term = con.term
             else:
-                term = '[{} for {} in range({},{}+{})]'.format(
-                    con.term, con.loopvar, con.range[0]-1, con.range[1], offset)
+                term = '[{} for {} in range({},{}+1)]'.format(
+                    con.term, con.loopvar, con.range[0], con.range[1])
             term = eval(term, _val)
             if con.type == 'sum':
                 term = Sum(term)
@@ -322,13 +322,13 @@ class ProblemModel:
                     print('Adding constraint:', final)
         
         elif con.type == 'loop':
-            lbound = ProblemModel._get_number(con.range[0], _val) + offset
-            ubound = ProblemModel._get_number(con.range[1], _val) + offset
+            lbound = ProblemModel._get_number(con.range[0], _val)
+            ubound = ProblemModel._get_number(con.range[1], _val)
             
             if con.loopvar in _val:
                 raise Exception('Loop variable {} already exists.'.format(con.loopvar))
             
-            for i in range(lbound-1, ubound):
+            for i in range(lbound, ubound+1):
                 _val[con.loopvar] = i
                 if isinstance(con.term, str):
                     term = eval(con.term, _val)
@@ -347,14 +347,14 @@ class ProblemModel:
                             print('Adding constraint:', final)
                 else:
                     for cons in con.term:
-                        ProblemModel._parse_constraint(cons, _val, x, y, opt, offset+1,retList, verbose)
+                        ProblemModel._parse_constraint(cons, _val, x, y, opt, retList, verbose)
             
             del _val[con.loopvar]
         
         elif con.type == 'or' or con.type == 'and':
             condList = []
             for cons in con.term:
-                ProblemModel._parse_constraint(cons, _val, x, y, opt, offset, condList, verbose)
+                ProblemModel._parse_constraint(cons, _val, x, y, opt, condList, verbose)
             if con.type == 'or':
                 final = Or(condList)
             else:
@@ -428,7 +428,7 @@ class ProblemModel:
             print('\tName: {}'.format(c.name))
             print('\tType: {}'.format(c.type))
             print('\tDefault value: {}'.format(c.value))
-            print('\tBound: {}'.format(c.bound))
+            print('\tBound: {}'.format(c.range))
     
 
     def solve(self, verbose = False):
@@ -457,7 +457,8 @@ class ProblemModel:
         # handle constraints
         # need to do a recursive way
         for con in self.constraint:
-            ProblemModel._parse_constraint(con, value_dict, x, y, opt, 0, None, verbose)
+            ProblemModel._parse_constraint(con, value_dict, x, y, opt, 
+                retList=None, verbose=verbose)
         
         h = opt.maximize(y) if self.objective.goal == 'max' else opt.minimize(y)
         if opt.check() != sat:
@@ -469,7 +470,7 @@ class ProblemModel:
     
         
     def mutate(self, mode=None):
-        modes = ('objective', 'constraint')
+        modes = ('objective', 'constraint', 'parameter')
         if mode==None:
             mode = random.choice(modes)
         elif mode not in modes:
@@ -492,6 +493,25 @@ class ProblemModel:
             if len(cons) == 0:
                 raise Exception('No constraints to mutate')
             con = random.choice(cons)
+        
+        elif mode == 'parameter':
+            if len(self.param) == 0:
+                raise Exception('No parameters to mutate')
+            pIndex = random.randint(0, len(self.param)-1)
+            param = self.param[pIndex]
+
+            if param.range[1]-param.range[0] <= 0:
+                raise Exception('Range too narrow: {}'.format(param.range))
+            
+            newval = random.randint(param.range[0], param.range[1])
+            while newval==param.value:
+                newval = random.randint(param.range[0], param.range[1])
+            
+            before, after = self.problem_text[:param.index[0]-1], self.problem_text[param.index[1]:]
+            res.problem_text = before + str(newval) + after
+            res.param[pIndex].value = newval
+            res.param[pIndex].range[1] = len(before)+len(str(newval))+1
+
         else:
             pass
 
