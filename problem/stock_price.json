@@ -10,6 +10,15 @@
         "type": "int",
         "count": "n"
     },
+    "parameter": [
+        {
+            "type": "int",
+            "name": "k",
+            "value": 2,
+            "bound": [1,10],
+            "index": [80,80]
+        }
+    ],
     "constraint": [
         {
             "type": "sum",
@@ -35,8 +44,26 @@
         {
             "type": "loop",
             "loopvar": "i",
-            "term": "Or(x[i]<=0, x[i+1]==0)",
-            "range": [1, "n-1"]
+            "term": {
+                "type": "or",
+                "term": [
+                    {
+                        "type": "loop",
+                        "loopvar": "j",
+                        "term": "x[i+j]",
+                        "comp": "<=",
+                        "rval": "0",
+                        "range": [0,"k-2"]
+                    },
+                    {
+                        "type": "single",
+                        "term": "x[i+k-1]",
+                        "comp": "=",
+                        "rval": "0"
+                    }
+                ]
+            },
+            "range": [1, "n-k+1"]
         },
         {
             "type": "loop",

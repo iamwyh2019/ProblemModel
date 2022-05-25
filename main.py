@@ -11,6 +11,6 @@ verbose = args.verbose
 
 model = ProblemModel(filepath, verbose=verbose)
 #model.print()
-#a,b = model.solve(verbose=verbose)
-#print(a,b)
-print(model.mutate('constraint').problem_text)
+a,b = model.solve(verbose=verbose)
+print(a,b)
+#print(model.mutate('constraint').problem_text)

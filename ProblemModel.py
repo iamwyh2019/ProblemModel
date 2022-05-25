@@ -47,6 +47,34 @@ class _Objective:
             raise Exception('Need index in objective as \'index\'')
         self.index = obj['index']
 
+class _Parameter:
+    def __init__(self, obj, verbose=False):
+        if 'type' not in obj:
+            if verbose:
+                print('Cannot find type in parameter. Use int as default.')
+            self.type = 'int'
+        else:
+            self.type = obj['type']
+        
+        if self.type not in ('int', 'real'):
+            raise Exception('Illegal type: need to be int or real')
+        
+        if 'name' not in obj:
+            raise Exception('Need name in parameter as \'name\'')
+        self.name = obj['name']
+
+        if 'bound' not in obj:
+            raise Exception('Need bound in parameter as \'bound\'')
+        self.bound = obj['bound']
+
+        if 'index' not in obj:
+            raise Exception('Need index in parameter as \'index\'')
+        self.index = obj['index']
+
+        if 'value' not in obj:
+            raise Exception('Need value in parameter as \'value\'')
+        self.value = obj['value']
+
 
 class _Variable:
     def __init__(self, obj, verbose=False):
@@ -73,6 +101,7 @@ class _Constraint:
 
         self.upbound = upbound
         self.numvar = numvar
+        self.loopvar = None
 
         self.comp = obj['comp'] if 'comp' in obj else None
         self.rval = obj['rval'] if 'rval' in obj else None
@@ -89,7 +118,7 @@ class _Constraint:
             self.type = 'single'
         else:
             self.type = obj['type']
-            if self.type not in ('single', 'loop', 'sum', 'product'):
+            if self.type not in ('single', 'loop', 'sum', 'product', 'or', 'and'):
                 raise Exception('Illegal constraint type.')
         
         if self.type in ('loop', 'sum', 'product'):
@@ -107,11 +136,13 @@ class _Constraint:
             else:
                 self.loopvar = obj['loopvar']
         
-        if obj['type'] == 'loop':
+        if obj['type'] in ('loop', 'or', 'and'):
             if isinstance(self.term, dict):
-                self.term = [_Constraint(self.term, self.loopvar, numvar, dep+1, verbose)]
+                self.term = [_Constraint(self.term, \
+                    self.loopvar or upbound, numvar, dep+1, verbose)]
             elif isinstance(self.term, list):
-                self.term = [_Constraint(t, self.loopvar, numvar, dep+1, verbose) for t in self.term]
+                self.term = [_Constraint(t, \
+                    self.loopvar or upbound, numvar, dep+1, verbose) for t in self.term]
     
     def _print(self, level=0):
         padding = '\t' * level
@@ -131,6 +162,10 @@ class _Constraint:
                 print('the following constraints holds:')
                 for t in self.term:
                     t._print(level+1)
+        elif self.type == 'and' or self.type == 'or':
+            print(padding, 'the logical {} of the following constraints holds:'.format(self.type), sep='\t')
+            for t in self.term:
+                t._print(level+1)
         else:
             if self.range[0]==1 and self.range[1]==self.numvar:
                 term = self.term
@@ -172,7 +207,8 @@ class ProblemModel:
         self.objective = None
         self.variable = None
         self.constraint = None
-        self.input = None
+        self.input = []
+        self.param = []
         self.verbose = verbose
 
         if file_path == None or not os.path.exists(file_path):
@@ -214,10 +250,17 @@ class ProblemModel:
                 self.constraint.append(_Constraint(Obj, self.variable.count, self.variable.count, 1, self.verbose))
         
         if 'input' in js:
-            self.input = []
             Obj = js['input']
             for obj in Obj:
                 self.input.append(_Input(obj, self.verbose))
+        
+        if 'parameter' in js:
+            Obj = js['parameter']
+            if isinstance(Obj, list):
+                for obj in Obj:
+                    self.param.append(_Parameter(obj, self.verbose))
+            elif isinstance(Obj, dict):
+                self.param.append(_Parameter(Obj, self.verbose))
     
     @staticmethod
     def _get_number(i,val_dict):
@@ -233,7 +276,7 @@ class ProblemModel:
             raise Exception('Illegal type: {}'.format(type(i)))
     
     @staticmethod
-    def _parse_constraint(con, _val, x, y, opt, verbose=False):
+    def _parse_constraint(con, _val, x, y, opt, offset=0, retList=None, verbose=False):
         
         _val['x'] = x
         _val['y'] = y
@@ -257,8 +300,8 @@ class ProblemModel:
             if con.type == 'single':
                 term = con.term
             else:
-                term = '[{} for {} in range({},{})]'.format(
-                    con.term, con.loopvar, con.range[0]-1, con.range[1])
+                term = '[{} for {} in range({},{}+{})]'.format(
+                    con.term, con.loopvar, con.range[0]-1, con.range[1], offset)
             term = eval(term, _val)
             if con.type == 'sum':
                 term = Sum(term)
@@ -270,13 +313,17 @@ class ProblemModel:
                 final = get_comp(con.comp)(term, rval)
             else:
                 final = term
-            if verbose:
-                print('Adding constraint:', final)
-            opt.add(final)
+            
+            if retList != None:
+                retList.append(final)
+            else:
+                opt.add(final)
+                if verbose:
+                    print('Adding constraint:', final)
         
         elif con.type == 'loop':
-            lbound = ProblemModel._get_number(con.range[0], _val)
-            ubound = ProblemModel._get_number(con.range[1], _val)
+            lbound = ProblemModel._get_number(con.range[0], _val) + offset
+            ubound = ProblemModel._get_number(con.range[1], _val) + offset
             
             if con.loopvar in _val:
                 raise Exception('Loop variable {} already exists.'.format(con.loopvar))
@@ -291,16 +338,33 @@ class ProblemModel:
                         final = get_comp(con.comp)(term, rval)
                     else:
                         final = term
-                        
-                    if verbose:
-                        print('Adding constraint:', final)
-                    opt.add(final)
+                    
+                    if retList != None:
+                        retList.append(final)
+                    else:
+                        opt.add(final)
+                        if verbose:
+                            print('Adding constraint:', final)
                 else:
-                    _val[con.loopvar] = i+1
                     for cons in con.term:
-                        ProblemModel._parse_constraint(cons, _val, x, y, opt, verbose)
+                        ProblemModel._parse_constraint(cons, _val, x, y, opt, offset+1,retList, verbose)
             
             del _val[con.loopvar]
+        
+        elif con.type == 'or' or con.type == 'and':
+            condList = []
+            for cons in con.term:
+                ProblemModel._parse_constraint(cons, _val, x, y, opt, offset, condList, verbose)
+            if con.type == 'or':
+                final = Or(condList)
+            else:
+                final = And(condList)
+            if retList != None:
+                retList.append(final)
+            else:
+                opt.add(final)
+                if verbose:
+                    print('Adding constraint:', final)
         
         else:
             raise Exception('Illegal constraint type: {}'.format(con.type))
@@ -357,11 +421,24 @@ class ProblemModel:
             print('\tType: {}'.format(c.type))
             if c.type in ('intarray', 'realarray'):
                 print('\tLength: {}'.format(c.length))
+        
+        print('This problem has {} parameters:'.format(len(self.param)))
+        for i,c in enumerate(self.param):
+            print('Parameter {}:'.format(i+1))
+            print('\tName: {}'.format(c.name))
+            print('\tType: {}'.format(c.type))
+            print('\tDefault value: {}'.format(c.value))
+            print('\tBound: {}'.format(c.bound))
     
 
     def solve(self, verbose = False):
         # first, handle input
         value_dict = self._input()
+        # then, add parameter
+        for p in self.param:
+            if p.name in value_dict:
+                raise Exception('Name {} already exists.'.format(p.name))
+            value_dict[p.name] = p.value
 
         # declare optimizer, variable x, and goal y
         opt = Optimize()
@@ -380,7 +457,7 @@ class ProblemModel:
         # handle constraints
         # need to do a recursive way
         for con in self.constraint:
-            ProblemModel._parse_constraint(con, value_dict, x, y, opt, verbose)
+            ProblemModel._parse_constraint(con, value_dict, x, y, opt, 0, None, verbose)
         
         h = opt.maximize(y) if self.objective.goal == 'max' else opt.minimize(y)
         if opt.check() != sat:
