@@ -197,6 +197,11 @@ class _Input:
             if 'length' not in obj:
                 raise Exception('Need length in input as \'length\'')
             self.length = obj['length']
+        
+        if 'comment' in obj:
+            self.comment = obj['comment']
+        else:
+            self.comment = None
 
 
 
@@ -376,12 +381,20 @@ class ProblemModel:
 
     def _input(self):
         input_dict = {}
+        def get_article(word):
+            if word[0] in ('a','e','i','o','u'):
+                return 'an'
+            else:
+                return 'a'
+
         for i in self.input:
             if i.name in input_dict:
                 raise Exception('Duplicate input name: {}'.format(i.name))
 
             if i.type in ('int', 'real'):
-                print('Input {}, a {} number: '.format(i.name, i.type), end='')
+                print('Input {}, {} {} number{}: '.format(
+                    i.name, get_article(i.type), i.type,
+                    ', '+i.comment if i.comment else ''), end='')
                 tp = int if i.type == 'int' else float
                 try:
                     input_dict[i.name] = tp(input())
@@ -394,7 +407,9 @@ class ProblemModel:
 
                 length = ProblemModel._get_number(i.length, input_dict)
                 
-                print('Input {}, a {} of length {}: '.format(i.name, i.type, length,), end='')
+                print('Input {}, {} {} of length {}{}: '.format(
+                    i.name, get_article(i.type), i.type, length,
+                    ', '+i.comment if i.comment else ''), end='')
                 try:
                     input_dict[i.name] = [tp(v) for v in input().split()]
                 except ValueError:

@@ -1,0 +1,86 @@
+{
+    "language": "zh",
+    "text": "给你一个非负整数数组nums，你最初位于数组的第一个位置。数组中的每个元素代表你在该位置可以跳跃的最大长度。你的目标是使用最少的跳跃次数到达数组的最后一个位置。",
+    "objective": {
+        "goal": "min",
+        "type": "int",
+        "index": [62,63]
+    },
+    "variable": {
+        "type": "int",
+        "count": "n"
+    },
+    "input": [
+        {
+            "name": "n"
+        },
+        {
+            "name": "arr",
+            "type": "intarray",
+            "length": "n"
+        }
+    ],
+    "constraint": [
+        {
+            "type": "loop",
+            "loopvar": "i",
+            "term": {
+                "type": "or",
+                "term": [
+                    {
+                        "term": "x[i]",
+                        "comp": "=",
+                        "rval": "0"
+                    },
+                    {
+                        "term": "x[i]",
+                        "comp": "=",
+                        "rval": "1"
+                    }
+                ]
+            },
+            "range": [1,"n-2"]
+        },
+        {
+            "type": "sum",
+            "term": "x[i]",
+            "loopvar": "i",
+            "comp": "=",
+            "rval": "y",
+            "range": [0,"n-2"]
+        },
+        {
+            "term": "x[0]",
+            "comp": "=",
+            "rval": "1"
+        },
+        {
+            "term": "x[n-1]",
+            "comp": "=",
+            "rval": "1"
+        },
+        {
+            "type": "loop",
+            "term": {
+                "type": "or",
+                "term": [
+                    {
+                        "term": "x[i]",
+                        "comp": "=",
+                        "rval": "0"
+                    },
+                    {
+                        "type": "sum",
+                        "term": "x[j]",
+                        "comp": ">=",
+                        "rval": "1",
+                        "range": ["i+1", "min(i+arr[i],n-1)"],
+                        "loopvar": "j"
+                    }
+                ]
+            },
+            "loopvar": "i",
+            "range": [0,"n-2"]
+        }
+    ]
+}

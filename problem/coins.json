@@ -1,0 +1,52 @@
+{
+    "language": "zh",
+    "text": "给你一个整数数组coins，表示不同面额的硬币；以及一个整数amount，表示总金额。计算并返回可以凑成总金额所需的最少的硬币个数。如果没有任何一种硬币组合能组成总金额，返回-1。",
+    "objective": {
+        "goal": "min",
+        "type": "int",
+        "index": [59,60]
+    },
+    "variable": {
+        "type": "int",
+        "count": "n"
+    },
+    "input": [
+        {
+            "name": "n",
+            "comment": "number of coins"
+        },
+        {
+            "name": "coins",
+            "type": "intarray",
+            "length": "n",
+            "comment": "the value of each coin"
+        },
+        {
+            "name": "amount",
+            "comment": "the desired total amount"
+        }
+    ],
+    "constraint": [
+        {
+            "type": "sum",
+            "term": "x[i]",
+            "comp": "=",
+            "rval": "y",
+            "loopvar": "i"
+        },
+        {
+            "type": "sum",
+            "term": "coins[i]*x[i]",
+            "comp": "=",
+            "rval": "amount",
+            "loopvar": "i"
+        },
+        {
+            "type": "loop",
+            "loopvar": "i",
+            "term": "x[i]",
+            "comp": ">=",
+            "rval": 0
+        }
+    ]
+}
