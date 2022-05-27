@@ -78,9 +78,9 @@ class _Parameter:
 
 class _Variable:
     def __init__(self, obj, verbose=False):
-        if 'count' not in obj:
-            raise Exception('Need count in variable as \'count\'')
-        self.count = obj['count']
+        if 'length' not in obj:
+            raise Exception('Need length in variable as \'length\'')
+        self.count = obj['length']
             
         if 'type' not in obj:
             if verbose:

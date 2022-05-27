@@ -8,7 +8,7 @@
     },
     "variable": {
         "type": "int",
-        "count": "n"
+        "length": "n"
     },
     "input": [
         {
