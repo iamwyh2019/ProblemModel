@@ -1,4 +1,4 @@
-from z3 import Int, Real, IntVector, RealVector, Sum, Product, Optimize, And, Or, sat
+from z3 import Int, Real, IntVector, RealVector, Sum, Product, Optimize, Solver, And, Or, sat
 import random
 import os
 try:
@@ -28,8 +28,8 @@ class _Objective:
         else:
             self.goal = obj['goal']
 
-        if self.goal not in ('min', 'max'):
-            raise Exception('Illegal goal: need to be min or max')
+        if self.goal not in ('min', 'max', 'exist'):
+            raise Exception('Illegal goal: need to be exist, min or max')
         
         if 'type' not in obj:
             if verbose:
@@ -377,15 +377,15 @@ class ProblemModel:
         else:
             raise Exception('Illegal constraint type: {}'.format(con.type))
 
-            
+    @staticmethod
+    def get_article(word):
+        if word[0] in ('a','e','i','o','u'):
+            return 'an'
+        else:
+            return 'a'
 
     def _input(self):
         input_dict = {}
-        def get_article(word):
-            if word[0] in ('a','e','i','o','u'):
-                return 'an'
-            else:
-                return 'a'
 
         for i in self.input:
             if i.name in input_dict:
@@ -393,7 +393,7 @@ class ProblemModel:
 
             if i.type in ('int', 'real'):
                 print('Input {}, {} {} number{}: '.format(
-                    i.name, get_article(i.type), i.type,
+                    i.name, ProblemModel.get_article(i.type), i.type,
                     ', '+i.comment if i.comment else ''), end='')
                 tp = int if i.type == 'int' else float
                 try:
@@ -408,7 +408,7 @@ class ProblemModel:
                 length = ProblemModel._get_number(i.length, input_dict)
                 
                 print('Input {}, {} {} of length {}{}: '.format(
-                    i.name, get_article(i.type), i.type, length,
+                    i.name, ProblemModel.get_article(i.type), i.type, length,
                     ', '+i.comment if i.comment else ''), end='')
                 try:
                     input_dict[i.name] = [tp(v) for v in input().split()]
@@ -457,9 +457,10 @@ class ProblemModel:
             if p.name in value_dict:
                 raise Exception('Name {} already exists.'.format(p.name))
             value_dict[p.name] = p.value
+        
 
         # declare optimizer, variable x, and goal y
-        opt = Optimize()
+        opt = Solver() if self.objective.goal == 'exist' else Optimize()
 
         num_var = ProblemModel._get_number(self.variable.count, value_dict)
         if self.variable.type == 'int':
@@ -478,13 +479,19 @@ class ProblemModel:
             ProblemModel._parse_constraint(con, value_dict, x, y, opt, 
                 retList=None, verbose=verbose)
         
-        h = opt.maximize(y) if self.objective.goal == 'max' else opt.minimize(y)
-        if opt.check() != sat:
-            return False, None
-        if self.objective.goal == 'max':
-            return opt.upper(h), opt.model()
+        if self.objective.goal == 'exist':
+            if opt.check() != sat:
+                return False, None
+            else:
+                return True, opt.model()
         else:
-            return opt.lower(h), opt.model()
+            h = opt.maximize(y) if self.objective.goal == 'max' else opt.minimize(y)
+            if opt.check() != sat:
+                return False, None
+            if self.objective.goal == 'max':
+                return opt.upper(h), opt.model()
+            else:
+                return opt.lower(h), opt.model()
     
         
     def mutate(self, mode=None):
