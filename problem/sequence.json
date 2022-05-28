@@ -1,0 +1,87 @@
+{
+    "language": "zh",
+    "text": "给你一个整数数组nums和一个整数k，请你返回非空子序列元素和的最大值，子序列需要满足：子序列中每两个相邻的整数nums[i]和nums[j]，它们在原数组中的下标i和j满足 i<j 且 j-i<=k 。",
+    "objective": {
+        "goal": "max",
+        "type": "int",
+        "index": [33,34]
+    },
+    "variable": {
+        "type": "int",
+        "length": "n"
+    },
+    "input": [
+        {
+            "name": "n"
+        },
+        {
+            "name": "arr",
+            "type": "intarray",
+            "length": "n"
+        },
+        {
+            "name": "k"
+        }
+    ],
+    "constraint": [
+        {
+            "type": "loop",
+            "loopvar": "i",
+            "term": {
+                "type": "or",
+                "term": [
+                    {
+                        "term": "x[i]",
+                        "comp": "=",
+                        "rval": "0"
+                    },
+                    {
+                        "term": "x[i]",
+                        "comp": "=",
+                        "rval": "1"
+                    }
+                ]
+            }
+        },
+        {
+            "type": "sum",
+            "loopvar": "i",
+            "term": "x[i]",
+            "comp": ">=",
+            "rval": "1"
+        },
+        {
+            "type": "sum",
+            "loopvar": "i",
+            "term": "arr[i]*x[i]",
+            "comp": "=",
+            "rval": "y"
+        },
+        {
+            "type": "loop",
+            "loopvar": "i",
+            "range": [0, "n-k-1"],
+            "term": {
+                "type": "or",
+                "term": [
+                    {
+                        "type": "sum",
+                        "loopvar": "j",
+                        "range": ["i+1", "n-1"],
+                        "term": "x[j]",
+                        "comp": "=",
+                        "rval": "0"
+                    },
+                    {
+                        "type": "sum",
+                        "loopvar": "j",
+                        "range": ["i+1", "i+k"],
+                        "term": "x[j]",
+                        "comp": ">=",
+                        "rval": "1"
+                    }
+                ]
+            }
+        }
+    ]
+}

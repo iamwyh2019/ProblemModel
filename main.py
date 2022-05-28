@@ -12,6 +12,8 @@ verbose = args.verbose
 model = ProblemModel(filepath, verbose=verbose)
 #model.print()
 a,b,c = model.solve(verbose=verbose)
+print(a)
+print(b)
 print(c)
 
 # newmodel = model.mutate('parameter')
