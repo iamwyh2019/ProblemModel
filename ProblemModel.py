@@ -6,6 +6,7 @@ try:
 except:
     import json
 import copy
+import time
 
 _words = {
     'en': {
@@ -281,7 +282,7 @@ class ProblemModel:
             raise Exception('Illegal type: {}'.format(type(i)))
     
     @staticmethod
-    def _parse_constraint(con, _val, x, y, opt, retList=None, verbose=False):
+    def _parse_constraint(con, _val, x, y, opt, retList=None, verbose=False, specs=None):
         
         _val['x'] = x
         _val['y'] = y
@@ -323,6 +324,8 @@ class ProblemModel:
                 retList.append(final)
             else:
                 opt.add(final)
+                if specs != None:
+                    specs['n_constraint'] += 1
                 if verbose:
                     print('Adding constraint:', final)
         
@@ -348,18 +351,24 @@ class ProblemModel:
                         retList.append(final)
                     else:
                         opt.add(final)
+                        if specs != None:
+                            specs['n_constraint'] += 1
                         if verbose:
                             print('Adding constraint:', final)
                 else:
                     for cons in con.term:
-                        ProblemModel._parse_constraint(cons, _val, x, y, opt, retList, verbose)
+                        ProblemModel._parse_constraint(cons, _val, x, y, 
+                            opt, retList, verbose=verbose, specs=specs)
             
             del _val[con.loopvar]
         
         elif con.type == 'or' or con.type == 'and':
             condList = []
             for cons in con.term:
-                ProblemModel._parse_constraint(cons, _val, x, y, opt, condList, verbose)
+                ProblemModel._parse_constraint(cons, _val, x, y, 
+                    opt, condList, verbose=verbose, specs=specs)
+            if specs != None:
+                specs['n_constraint'] += len(condList)
             if len(condList) == 1:
                 final = condList[0]
             else:
@@ -369,6 +378,7 @@ class ProblemModel:
                     final = And(condList)
             if retList != None:
                 retList.append(final)
+                specs['n_constraint'] -= 1
             else:
                 opt.add(final)
                 if verbose:
@@ -475,23 +485,32 @@ class ProblemModel:
 
         # handle constraints
         # need to do a recursive way
+        specs = {'n_constraint': 0}
+        now = time.time()
         for con in self.constraint:
             ProblemModel._parse_constraint(con, value_dict, x, y, opt, 
-                retList=None, verbose=verbose)
-        
+                retList=None, verbose=verbose, specs=specs)
+        specs['time_constraint'] = time.time() - now
+
+        result, model = None, None
+
+        now = time.time()        
         if self.objective.goal == 'exist':
             if opt.check() != sat:
-                return False, None
+                result, model = False, None
             else:
-                return True, opt.model()
+                result, model = True, opt.model()
         else:
             h = opt.maximize(y) if self.objective.goal == 'max' else opt.minimize(y)
             if opt.check() != sat:
-                return False, None
+                result, model = False, None
             if self.objective.goal == 'max':
-                return opt.upper(h), opt.model()
+                result, model = opt.upper(h), opt.model()
             else:
-                return opt.lower(h), opt.model()
+                result, model = opt.lower(h), opt.model()
+        
+        specs['time_solve'] = time.time() - now
+        return result, model, specs
     
         
     def mutate(self, mode=None):
