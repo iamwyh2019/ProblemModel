@@ -1,4 +1,5 @@
-from z3 import Int, Real, IntVector, RealVector, Sum, Product, Optimize, Solver, And, Or, sat
+from z3 import Int, Real, IntVector, RealVector, Sum
+from z3 import Product, Optimize, Solver, And, Or, sat, If
 import random
 import os
 try:
@@ -181,7 +182,7 @@ class _Input:
             raise Exception('Need name in input as \'name\'')
         self.name = obj['name']
 
-        reserved = ('x', 'y')
+        reserved = ('x', 'y', 'And', 'Or', 'If')
         if self.name in reserved:
             raise Exception('Illegal name: {} is reserved'.format(self.name))
 
@@ -288,6 +289,7 @@ class ProblemModel:
         _val['y'] = y
         _val['Or'] = Or
         _val['And'] = And
+        _val['If'] = If
         
         comp_func = {
             '<': lambda x,y: x<y,
@@ -305,13 +307,16 @@ class ProblemModel:
         if con.type in ('single', 'sum', 'product'):
             if con.type == 'single':
                 term = con.term
+                specs['n_unit'] += 1
             else:
                 term = '[{} for {} in range({},{}+1)]'.format(
                     con.term, con.loopvar, con.range[0], con.range[1])
             term = eval(term, _val)
             if con.type == 'sum':
+                specs['n_unit'] += len(term)
                 term = Sum(term)
             elif con.type == 'product':
+                specs['n_unit'] += len(term)
                 term = Product(term)
             
             if con.comp!=None and con.rval!=None:
@@ -340,6 +345,7 @@ class ProblemModel:
                 _val[con.loopvar] = i
                 if isinstance(con.term, str):
                     term = eval(con.term, _val)
+                    specs['n_unit'] += 1
 
                     if con.comp!=None and con.rval!=None:
                         rval = eval(con.rval, _val) if isinstance(con.rval, str) else con.rval
@@ -394,20 +400,29 @@ class ProblemModel:
         else:
             return 'a'
 
-    def _input(self):
+    def _input(self, input_=None):
         input_dict = {}
 
-        for i in self.input:
+        inputs = None
+        if input_ != None:
+            with open(input_, "r") as f:
+                inputs = f.readlines()
+
+        for idx,i in enumerate(self.input):
             if i.name in input_dict:
                 raise Exception('Duplicate input name: {}'.format(i.name))
 
             if i.type in ('int', 'real'):
-                print('Input {}, {} {} number{}: '.format(
+                if inputs == None:
+                    print('Input {}, {} {} number{}: '.format(
                     i.name, ProblemModel.get_article(i.type), i.type,
                     ', '+i.comment if i.comment else ''), end='')
                 tp = int if i.type == 'int' else float
                 try:
-                    input_dict[i.name] = tp(input())
+                    if inputs != None:
+                        input_dict[i.name] = tp(inputs[idx])
+                    else:
+                        input_dict[i.name] = tp(input())
                 except ValueError:
                     raise Exception('Illegal input')
                 
@@ -417,11 +432,15 @@ class ProblemModel:
 
                 length = ProblemModel._get_number(i.length, input_dict)
                 
-                print('Input {}, {} {} of length {}{}: '.format(
+                if inputs == None:
+                    print('Input {}, {} {} of length {}{}: '.format(
                     i.name, ProblemModel.get_article(i.type), i.type, length,
                     ', '+i.comment if i.comment else ''), end='')
                 try:
-                    input_dict[i.name] = [tp(v) for v in input().split()]
+                    if inputs != None:
+                        input_dict[i.name] = [tp(x) for x in inputs[idx].split()]
+                    else:
+                        input_dict[i.name] = [tp(v) for v in input().split()]
                 except ValueError:
                     raise Exception('Illegal input')
                 
@@ -459,9 +478,9 @@ class ProblemModel:
             print('\tBound: {}'.format(c.range))
     
 
-    def solve(self, verbose = False):
+    def solve(self, verbose = False, nosolve=False, input_=None):
         # first, handle input
-        value_dict = self._input()
+        value_dict = self._input(input_=input_)
         # then, add parameter
         for p in self.param:
             if p.name in value_dict:
@@ -485,12 +504,16 @@ class ProblemModel:
 
         # handle constraints
         # need to do a recursive way
-        specs = {'n_constraint': 0}
+        specs = {'n_constraint': 0, 'n_unit': 0}
         now = time.time()
         for con in self.constraint:
             ProblemModel._parse_constraint(con, value_dict, x, y, opt, 
                 retList=None, verbose=verbose, specs=specs)
         specs['time_constraint'] = time.time() - now
+
+        if nosolve:
+            specs['time_solve'] = None
+            return None, None, specs
 
         result, model = None, None
 
